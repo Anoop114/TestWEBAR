@@ -10,7 +10,7 @@ body {
     overflow: hidden;
     background-color: #000;
     color: #fff;
-    background-image: url('targets/flower.png');
+    background-image: url('targets/bfly.png');
     background-repeat: no-repeat;
     background-position: center center;
     background-size: cover;
@@ -33,12 +33,44 @@ body {
     opacity: 0;
     transition: opacity .3s ease;
 }
-/* Hide Unity default loading UI */
-#unity-loading-bar,
-#unity-logo,
-#unity-progress-bar-empty,
+/* Hide only the Unity logo, keep the loading bar visible */
+#unity-logo { display: none !important; }
+#unity-loading-bar { display: block !important; }
+
+/* Position and style the loading bar at the bottom and make it wider */
+#unity-loading-bar {
+    position: fixed !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    bottom: -350px !important;
+    width: min(95vw, 1200px) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 12px !important;
+    background: transparent !important;
+    z-index: 9999 !important;
+}
+
+#unity-progress-bar-empty {
+    display: block !important;
+    width: 100% !important;
+    height: 20px !important;
+    background: rgba(255, 255, 255, 0) !important;
+    border-radius: 9999px !important;
+    overflow: hidden !important;
+    position: relative !important;
+}
+
 #unity-progress-bar-full {
-    display: none !important;
+    display: block !important;
+    height: 100% !important;
+    background: #ffffff !important;
+    border-radius: inherit !important;
+    transition: width 0.2s ease !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: -10px !important;
 }
 
 

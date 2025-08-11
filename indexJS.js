@@ -56,11 +56,12 @@ function StartAR() {
         }
     ).then((unityInstance) => {
         window.unityInstance = unityInstance;
-        //loadingBar.style.display = "none";
+        loadingBar.style.display = "none";
         //document.body.style.backgroundImage = 'none';
         // Reveal canvas after engine init to hide engine splash, with 1s delay
         setTimeout(() => {
             document.getElementById('unity-canvas').style.opacity = '1';
+            document.getElementById('unity-loading-bar').style.opacity = '0';
         }, 3000);
     });
     loadingBar.style.display = "block";
