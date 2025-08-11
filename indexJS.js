@@ -80,14 +80,46 @@ window.requestingForPermissions = false;
 async function RequestWebcam(){
     window.requestingForPermissions = true;
     try{
+        if (!window.isSecureContext) {
+            ShowError("Camera requires HTTPS or localhost. Please serve this page over https or use localhost.");
+            window.requestingForPermissions = false;
+            return;
+        }
         window.webcamStream = await navigator.mediaDevices.getUserMedia(window.WEBCAM_SETTINGS);
         console.log("Webcam access granted");
         window.requestingForPermissions = false;
     }
     catch (err) {
-        //user denied camera permission - show error panel
-        console.error("getUserMedia error - " , err);
-        ShowError("Failed to start the experience. Camera permission was denied");
+        console.error("getUserMedia error - ", err);
+        // Fallback for overconstrained or not found: try without deviceId
+        if (err && (err.name === 'OverconstrainedError' || err.name === 'NotFoundError')) {
+            try {
+                const originalVideoCfg = { ...window.WEBCAM_SETTINGS.video };
+                delete window.WEBCAM_SETTINGS.video.deviceId;
+                window.webcamStream = await navigator.mediaDevices.getUserMedia(window.WEBCAM_SETTINGS);
+                console.log("Webcam access granted (fallback without deviceId)");
+                window.requestingForPermissions = false;
+                return;
+            } catch (err2) {
+                console.error("Fallback getUserMedia error - ", err2);
+            }
+        }
+
+        // If permission was denied or a gesture is required, prompt minimal user interaction to retry
+        const needsGesture = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+        if (needsGesture) {
+            ShowError("Tap anywhere to enable your camera");
+            const tryAgain = async () => {
+                document.removeEventListener('click', tryAgain);
+                document.removeEventListener('touchstart', tryAgain);
+                document.getElementById("errorDiv").style.display = "none";
+                await RequestWebcam();
+            };
+            document.addEventListener('click', tryAgain, { once: true });
+            document.addEventListener('touchstart', tryAgain, { once: true });
+        } else {
+            ShowError("Failed to start the experience. Camera permission was denied");
+        }
         window.requestingForPermissions = false;
     }           
 }
