@@ -1,3 +1,12 @@
+
+var readyToStart = false;
+function OnStartOverlayClick(){
+    if(!readyToStart) return;
+    var startDiv = document.getElementById('startARDiv');
+    startDiv.classList.add('disabled');
+    StartAR();
+}
+
 var initialize = async() =>{
     var unityCanvas = document.querySelector("#unity-canvas");
     var videoCanvas = document.querySelector("#video-canvas");
@@ -14,13 +23,8 @@ var initialize = async() =>{
     }
     
     await LoadWebcams();
-    var select = document.getElementById("chooseCamSel");
-    if (select && select.options.length > 0) {
-        select.selectedIndex = 0;
-        SelectCam();
-    }
-    // Attempt to start automatically without requiring button click
-    StartAR();
+    // Cameras loaded; enable full-page start overlay
+    readyToStart = true;
 }
 
 initialize();
@@ -29,16 +33,11 @@ var container = document.querySelector("#unity-container");
 var canvas = document.querySelector("#unity-canvas");
 var loadingBar = document.querySelector("#unity-loading-bar");
 var progressBarFull = document.querySelector("#unity-progress-bar-full");
-window.hasStartedAR = false;
 function StartAR() {
-    if (window.hasStartedAR) return;
-    window.hasStartedAR = true;
     canvas.style.width = window.innerWidth + "px";
     canvas.style.height = window.innerHeight + "px";
     
     document.getElementById("startARDiv").style.display = "none";
-    // Request camera access immediately within the user gesture to avoid browser blocking (iOS/Safari)
-    RequestWebcam();
     createUnityInstance(document.querySelector("#unity-canvas"), {
         dataUrl: "Build/Build.data",
         frameworkUrl: "Build/Build.framework.js",
@@ -56,12 +55,14 @@ function StartAR() {
         }
     ).then((unityInstance) => {
         window.unityInstance = unityInstance;
+        //RequestWebcam();
+
         loadingBar.style.display = "none";
-        //document.body.style.backgroundImage = 'none';
-        // Reveal canvas after engine init to hide engine splash, with 1s delay
         setTimeout(() => {
             document.getElementById('unity-canvas').style.opacity = '1';
             document.getElementById('unity-loading-bar').style.opacity = '0';
+            // disable body background Image here
+            document.body.style.backgroundImage = 'none';
         }, 3000);
     });
     loadingBar.style.display = "block";
@@ -80,46 +81,14 @@ window.requestingForPermissions = false;
 async function RequestWebcam(){
     window.requestingForPermissions = true;
     try{
-        if (!window.isSecureContext) {
-            ShowError("Camera requires HTTPS or localhost. Please serve this page over https or use localhost.");
-            window.requestingForPermissions = false;
-            return;
-        }
         window.webcamStream = await navigator.mediaDevices.getUserMedia(window.WEBCAM_SETTINGS);
         console.log("Webcam access granted");
         window.requestingForPermissions = false;
     }
     catch (err) {
-        console.error("getUserMedia error - ", err);
-        // Fallback for overconstrained or not found: try without deviceId
-        if (err && (err.name === 'OverconstrainedError' || err.name === 'NotFoundError')) {
-            try {
-                const originalVideoCfg = { ...window.WEBCAM_SETTINGS.video };
-                delete window.WEBCAM_SETTINGS.video.deviceId;
-                window.webcamStream = await navigator.mediaDevices.getUserMedia(window.WEBCAM_SETTINGS);
-                console.log("Webcam access granted (fallback without deviceId)");
-                window.requestingForPermissions = false;
-                return;
-            } catch (err2) {
-                console.error("Fallback getUserMedia error - ", err2);
-            }
-        }
-
-        // If permission was denied or a gesture is required, prompt minimal user interaction to retry
-        const needsGesture = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
-        if (needsGesture) {
-            ShowError("Tap anywhere to enable your camera");
-            const tryAgain = async () => {
-                document.removeEventListener('click', tryAgain);
-                document.removeEventListener('touchstart', tryAgain);
-                document.getElementById("errorDiv").style.display = "none";
-                await RequestWebcam();
-            };
-            document.addEventListener('click', tryAgain, { once: true });
-            document.addEventListener('touchstart', tryAgain, { once: true });
-        } else {
-            ShowError("Failed to start the experience. Camera permission was denied");
-        }
+        //user denied camera permission - show error panel
+        console.error("getUserMedia error - " , err);
+        ShowError("Failed to start the experience. Camera permission was denied");
         window.requestingForPermissions = false;
     }           
 }
@@ -127,10 +96,15 @@ async function RequestWebcam(){
 async function StartWebcam(){
     console.log("StartWebcam")
 
+    // If we don't yet have a stream and we're not already asking, request it now
+    if (!window.webcamStream && !window.requestingForPermissions) {
+        await RequestWebcam();
+    }
+
     while (window.requestingForPermissions) {
         // Wait until requestingForPermissions becomes true.
         console.log("Waiting for permissions...");
-        await new Promise(resolve => setTimeout(resolve, 300)); // Adjust the delay time as needed.
+        await new Promise(resolve => setTimeout(resolve, 100)); // Adjust the delay time as needed.
     }
 
     console.log("Got Permissions");
@@ -155,7 +129,7 @@ async function StartWebcam(){
         window.unityInstance.SendMessage('ARCamera', 'OnStartWebcamFail');
     }  
 }
-async function LoadWebcams(){
+    async function LoadWebcams(){
     let camDevices = [];
     // let backCams = [];
     let devices = await navigator.mediaDevices.enumerateDevices();
@@ -180,7 +154,8 @@ async function LoadWebcams(){
         }
     });
     var select = document.getElementById("chooseCamSel");
-    // keep selector hidden
+    // keep hidden; we auto-select the first camera after population
+    select.style.display = "none";
     var count = 0;
     //reverse array because some Android phones can't distinguish front and back cams at first load
     //and when this happens, most of the time, front cam goes first and back cam goes last
@@ -197,18 +172,19 @@ async function LoadWebcams(){
         select.appendChild(option);
         count++;
     });
-    // default to first camera if available
-    if (select.options.length > 0) {
+    // Auto-select first camera by default if available
+    if (select.options.length > 0){
         select.selectedIndex = 0;
+        SelectCam();
+    }
+    if(select.options.length > 0){
         iTracker.WEBCAM_NAME = select.options[select.selectedIndex].innerHTML;
     }
 }
 function SelectCam(){
     var select = document.getElementById("chooseCamSel");
     window.deviceId = select.value;
-    // Use deviceId exact; remove facingMode to avoid overconstrained errors
-    delete window.WEBCAM_SETTINGS.video.facingMode;
-    window.WEBCAM_SETTINGS.video['deviceId'] = { exact: deviceId };
+    window.WEBCAM_SETTINGS.video['deviceId'] = deviceId;
     //console.log(window.WEBCAM_SETTINGS);
     iTracker.WEBCAM_NAME = select.options[select.selectedIndex].innerHTML;
 }
@@ -255,5 +231,4 @@ window.ITRACKER_GLOBALS = {
     //place global settings here
     INTERNAL_SMOOTHFACTOR_POS: .075,
 }
-
 

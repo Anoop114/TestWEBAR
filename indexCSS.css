@@ -15,6 +15,9 @@ body {
     background-position: center center;
     background-size: cover;
 }
+
+/* Adjustable loading bar vertical offset (in vh units). Override per-platform as needed. */
+:root { --unity-loading-bottom-vh: -40; }
 .ctaDiv {
     display: flex;
     flex-direction: column;
@@ -25,9 +28,14 @@ body {
     right: 0;
     top: 0;
     bottom: 0;
-    background: rgba(0,0,0,0.7);
     z-index: 99;
 }
+/* Start overlay: full-page button, dark with background image */
+#startARDiv.disabled {
+    pointer-events: none;
+    cursor: default;
+}
+#startARDiv p { color: #fff; max-width: 80vw; }
 /* Keep Unity canvas hidden initially to mask the engine splash */
 #unity-canvas {
     opacity: 0;
@@ -42,7 +50,7 @@ body {
     position: fixed !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
-    bottom: -350px !important;
+    bottom: calc(var(--unity-loading-bottom-vh, 12.5) * 1vh) !important;
     width: min(95vw, 1200px) !important;
     display: flex !important;
     align-items: center !important;
@@ -50,7 +58,11 @@ body {
     gap: 12px !important;
     background: transparent !important;
     z-index: 9999 !important;
+    pointer-events: none !important; /* don't block clicks */
 }
+
+/* Also ensure children don't capture clicks */
+#unity-loading-bar * { pointer-events: none !important; }
 
 #unity-progress-bar-empty {
     display: block !important;
